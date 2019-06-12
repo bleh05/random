@@ -20,9 +20,11 @@ pros::Motor left_wheels_2 (LEFT_WHEELS_PORT_2);
 pros::Motor right_wheels (RIGHT_WHEELS_PORT, true);
 pros::Motor right_wheels_2 (RIGHT_WHEELS_PORT_2, true);
 pros::Motor intake_L (INTAKE_PORT_L,MOTOR_GEARSET_36);
-pros::Motor intake_R (INTAKE_PORT_L,MOTOR_GEARSET_36);
-pros::Motor lift_motor (INTAKE_PORT_L,MOTOR_GEARSET_36);
+pros::Motor intake_R (INTAKE_PORT_R,MOTOR_GEARSET_36);
+pros::Motor lift_motor (LIFT_PORT,MOTOR_GEARSET_36);
 pros::Motor outtake (OUTTAKE_PORT, MOTOR_GEARSET_36, false, pros::E_MOTOR_ENCODER_COUNTS);
+
+bool pres=false;
 
 void moveIntake(bool dir){
   if(dir){
@@ -39,10 +41,10 @@ void stopIntake(){
   intake_R.move_velocity(0);
 }
 void outtake_macro(){
-  int numrot= 1;
+  int numrot= 10;
   IntegratedEncoder enc = IntegratedEncoder(outtake);
   enc.reset();
-  while(enc.get()<=1200*numrot){
+  while(enc.get()<=1800*numrot){
     printf("tick: %d\n",enc.get());
     outtake.move_velocity(127);
   }
@@ -54,7 +56,7 @@ void lift(int level){
   int currot = (heights[level]-heights[currlevel])/conv;
   IntegratedEncoder enc = IntegratedEncoder(outtake);
   enc.reset();
-  while(enc.get()<=1200*currot){
+  while(enc.get()<=1800*currot){
     //printf("tick: %d\n",enc.get());
     lift_motor.move_velocity(127);
   }
@@ -65,6 +67,11 @@ void opcontrol() {
   pros::Controller master (CONTROLLER_MASTER);
 
   while (true) {
+    outtake.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    lift_motor.set_brake_mode(pros::E_MOTOR_BRAKE_HOLD);
+    char const* currlevelStr =(std::to_string(currlevel)).c_str(); //doesntwork
+    printf("level: %s\n",currlevelStr);//doesntwork
+    master.set_text(1, 2,currlevelStr);//doesntwork
 		int left=master.get_analog(ANALOG_LEFT_Y);
 		int right=master.get_analog(ANALOG_RIGHT_Y);
     left_wheels.move(left);
@@ -80,27 +87,31 @@ void opcontrol() {
     else {
       stopIntake();
     }
-    if(master.get_digital(DIGITAL_L1)){
-      printf("level: %d\n",currlevel);
+    //printf("level: %d %d\n",currlevel,pres);
+    if(master.get_digital(DIGITAL_L1)&&!pres){
+      printf("level: %d %d\n",currlevel,pres);
+      pres=true;
       currlevel++;
       if(currlevel==5){
         currlevel=0;
       }
       //lift(currlevel);
-      pros::delay(250);
     }
-    if(master.get_digital(DIGITAL_L2)){
-      printf("level: %d\n",currlevel);
+    else if(master.get_digital(DIGITAL_L2)&&!pres){
+      pres=true;
+      printf("level: %d %d\n",currlevel,pres);
       currlevel--;
       if(currlevel==-1){
         currlevel=4;
       }
       //lift(currlevel);
-      pros::delay(250);
+    }
+    else if(master.get_digital(DIGITAL_L1)+master.get_digital(DIGITAL_L2)==0){
+      pres=false;
     }
     if(master.get_digital(DIGITAL_UP)){
       outtake_macro();
     }
-    pros::delay(10);
+    pros::delay(2);
   }
 }
